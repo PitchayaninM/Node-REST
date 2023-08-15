@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/PitchayaninM/Node-REST#readme",
   "devDependencies": {
+    "nodemon": "^3.0.1",
     "prettier": "^3.0.1"
   },
   "dependencies": {
