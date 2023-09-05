@@ -2,7 +2,7 @@ const express = require('express');
 const sqlite3 = require('sqlite3'); 
 const app = express();
 
-const db = new sqlite3. Database('./Database/Book.sqlite');
+const db = new sqlite3.Database('./Database/Book.sqlite');
  
 app.use(express.json());
 
@@ -37,7 +37,7 @@ app.get('/books/: id', (req, res) => {
  });
 });
     
-app.put('/books', (req, res) => {
+app.post('/books', (req, res) => {
     const book = req.body;
     db.run('INSERT INTO books (title, author) VALUES (?, ?)', book.title, book.author, function(err) {
     if (err) {
