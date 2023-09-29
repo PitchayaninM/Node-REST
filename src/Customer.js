@@ -29,7 +29,7 @@ app.get('/Customers/: id', (req, res) => {
             res.status(500).send(err);
         } else {
             if (!row) {
-                res.status(404).send('Book not found');
+                res.status(404).send('Customer not found');
             } else {
                 res.json(row);
             }
@@ -38,13 +38,13 @@ app.get('/Customers/: id', (req, res) => {
 });
     
 app.post('/Customers', (req, res) => {
-    const book = req.body;
+    const Customer = req.body;
     db.run('INSERT INTO Customers (title, author) VALUES (?, ?)', Customer.title, Customer.author, function(err) {
     if (err) {
         res.status(500).send(err);
     } else {
         Customer.id = this.lastID;
-        res.send(book); 
+        res.send(Customer); 
     }
     });   
 });
