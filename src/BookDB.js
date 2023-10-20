@@ -1,40 +1,8 @@
 const express = require('express');
 const Sequelize = require('sequelize');
-const sqlite3 = require('sqlite3').verbose();
-
 const app = express();
-app.use(express.json());
 
-// Create SQLite database and initialize tables
-const db = new sqlite3.Database('./Database/library.sqlite');
-db.run(`
-  CREATE TABLE IF NOT EXISTS borrowers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT
-  )
-`);
-db.run(`
-  CREATE TABLE IF NOT EXISTS borrowing_dates (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    borrower_id INTEGER,
-    borrow_date TEXT,
-    return_date TEXT,
-    FOREIGN KEY (borrower_id) REFERENCES borrowers(id)
-  )
-`);
-db.run(`
-  CREATE TABLE IF NOT EXISTS books (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT
-  )
-`);
-db.close((err) => {
-  if (err) {
-    console.error('Error closing the database:', err.message);
-  } else {
-    console.log('Database created and tables initialized successfully.');
-  }
-});
+app.use(express.json());
 
 const sequelize = new Sequelize('database', 'username', 'password', {
   host: 'localhost',
@@ -81,43 +49,47 @@ const BorrowingDate = sequelize.define('borrowing_date', {
   }
 });
 
+// Define associations
 Book.belongsTo(Borrower);
 Book.belongsTo(BorrowingDate);
 
-// Sync the models with the database
 sequelize.sync();
 
 // API routes
 
-// Create a new book
 app.post('/books', async (req, res) => {
   try {
     const { title, borrowerName, borrowDate, returnDate } = req.body;
+
+    // Create borrower
     const borrower = await Borrower.create({ name: borrowerName });
+
+    // Create borrowing date
     const borrowingDate = await BorrowingDate.create({
       borrow_date: borrowDate,
       return_date: returnDate,
       borrowerId: borrower.id
     });
-    const book = await Book.create({ title, borrowingDateId: borrowingDate.id });
+
+    // Create book
+    const book = await Book.create({ title, borrowingDateId: borrowingDate.id, borrowerId: borrower.id });
+
     res.json(book);
   } catch (error) {
     res.status(500).send(error.message);
   }
 });
 
-// Add route to create a new borrower
 app.post('/borrower', async (req, res) => {
-    try {
-      const { name } = req.body;
-      const borrower = await Borrower.create({ name });
-      res.json(borrower);
-    } catch (error) {
-      res.status(500).send(error.message);
-    }
-  });  
+  try {
+    const { name } = req.body;
+    const borrower = await Borrower.create({ name });
+    res.json(borrower);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
 
-// Get all books
 app.get('/books', async (req, res) => {
   try {
     const books = await Book.findAll({
@@ -130,7 +102,8 @@ app.get('/books', async (req, res) => {
           model: BorrowingDate,
           attributes: ['borrow_date', 'return_date']
         }
-      ]
+      ],
+      attributes: ['title']
     });
     res.json(books);
   } catch (error) {
@@ -139,48 +112,62 @@ app.get('/books', async (req, res) => {
 });
 
 app.put('/books/:id', async (req, res) => {
-    try {
-      const bookId = req.params.id;
-      const { title } = req.body;
-  
-      // Find the book by its ID
-      const book = await Book.findByPk(bookId);
-  
-      if (!book) {
-        return res.status(404).send('Book not found');
-      }
-  
-      // Update the book's title
-      await book.update({ title });
-  
-      return res.send(book);
-    } catch (error) {
-      return res.status(500).send(error.message);
+  try {
+    const bookId = req.params.id;
+    const { title } = req.body;
+
+    const book = await Book.findByPk(bookId);
+
+    if (!book) {
+      return res.status(404).send('Book not found');
     }
-  });
-  
-  
-  app.delete('/books/:id', async (req, res) => {
-    try {
-      const bookId = req.params.id;
-  
-      // Find Book
-      const book = await Book.findByPk(bookId);
-      if (!book) {
-        return res.status(404).send('Book not found');
-      }
-  
-      // Delete associated BorrowingDate
-      await BorrowingDate.destroy({ where: { bookId } });
-  
-      // Delete Book
-      await book.destroy();
-  
-      res.send('Book deleted successfully');
-    } catch (error) {
-      res.status(500).send(error.message);
+
+    await book.update({ title });
+
+    return res.send(book);
+  } catch (error) {
+    return res.status(500).send(error.message);
+  }
+});
+
+app.delete('/books/:id', async (req, res) => {
+  try {
+    const bookId = req.params.id;
+
+    const book = await Book.findByPk(bookId);
+    if (!book) {
+      return res.status(404).send('Book not found');
     }
-  });  
+
+    await BorrowingDate.destroy({ where: { id: book.borrowingDateId } });
+    await book.destroy();
+
+    res.send('Book deleted successfully');
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+app.get('/all_data', async (req, res) => {
+  try {
+    const allData = await Book.findAll({
+      include: [
+        {
+          model: Borrower,
+          attributes: ['name']
+        },
+        {
+          model: BorrowingDate,
+          attributes: ['borrow_date', 'return_date']
+        }
+      ],
+      attributes: ['title']
+    });
+    res.json(allData);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Listening on port ${port}...`));
